@@ -56,7 +56,7 @@ export function makePromisedStore<K, V>(): PromisedStore<K, V> {
 }
 
 export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): Promise<V[]> {
-    return Promise.all(R.map(store.get,keys)); // gets an array of promises and apling Promis.all
+  return Promise.all(keys.map(store.get)); // gets an array of promises and apling Promis.all
 }
 
 /* 2.2 */
