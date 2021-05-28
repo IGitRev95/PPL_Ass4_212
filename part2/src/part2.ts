@@ -39,26 +39,103 @@ export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): Promise<V[]
 }
 
 /* 2.2 */
+export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
+  const cache = makePromisedStore<T, R>();
+  return async (param) => {
+      try {
+         const cached_value: R = await cache.get(param);
+          return cached_value 
+      } catch (error) {
+        const value = f(param)
+        cache.set(param, value)
+        return value
+      }
+  }
+}
+// ! ! ! ! :( in the pdf
 
-// ??? (you may want to add helper functions here)
-//
-// export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
-//     ???
-// }
+// why the wrraped function return Promise<R>
+// Async functions always return a promise. 
+// If the return value of an async function is not explicitly a promise, it will be implicitly wrapped in a promise.
+// in our case we want the value of the Chashe memory with the Type R
+// to understand why async always return Promise : ??? is to keep asynchrony all the following applications
+
 
 /* 2.3 */
+export function lazyFilter<T>(genFn: () => Generator<T>, filterFn:(v:T) => boolean): ()=> Generator<T> {
+  const filterGen=  function* (genFn: ()=> Generator<T>, filter: (v:T) => boolean) {
+      const gen = genFn()
+      for (let x of gen) {
+          if (filter(x)) {
+              yield x;
+          }
+      }
+    }
+    return ()=> filterGen(genFn,filterFn);
+}
+export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: (v:T) => R):()=> Generator<R> {
 
-// export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: ???): ??? {
-//     ???
-// }
-
-// export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: ???): ??? {
-//     ???
-// }
+const MapGen= function* (genFn: ()=> Generator<T>, map: (v:T)=> R){
+   const gen = genFn()
+   for (let x of gen) {
+     yield map(x);
+   }
+}
+return ()=> MapGen(genFn,mapFn);
+ }
 
 /* 2.4 */
 // you can use 'any' in this question
-
-// export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...(???)[]]): Promise<any> {
-//     ???
+const wait2sec = async (p:Promise<any>, counter:number): Promise<any> => {
+  if (counter===3) throw Error
+  try {
+  return new Promise((resolve)=> {
+  setTimeout(async () => {
+  const x = await p
+  resolve(x)}
+  ,2000)
+    })
+  }
+  catch{
+     wait2sec(p,counter+1)
+  }
+}
+ 
+// const wait2Sec = async <T>(prom: Promise<T>):Promise<T> =>{
+//  return new Promise<T>((resolve, reject)=>{})
+//  );
+//  const val = async ()=>{try{return await prom}catch(err){return err}}
+//  return val(); 
+//  setTimeout(_=>,2000);
+//   try{
+//     return setTimeout( async ()=>{
+//       const retVal:T = await prom;
+//       return new Promise<T>(retVal);
+//   },2000);}
+//   catch(err){
+//     try{
+//         return setTimeout( async ()=>{
+//       const retVal:T = await prom;
+//       return new Promise<T>(retVal);
+//   },2000);}
+//   catch(err){
+//     return new Promise(err);
+//   }
+//  }
 // }
+
+
+ export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any)=> Promise<any>)[]]): Promise<any> {
+     let d= undefined
+     let x;
+     for (let y of fns){
+       try {
+      x = await y(d)
+      d=x
+       }
+       catch{
+        d= await wait2sec(y(d),1);
+       }
+     }
+
+ }
