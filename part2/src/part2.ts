@@ -86,56 +86,34 @@ return ()=> MapGen(genFn,mapFn);
 
 /* 2.4 */
 // you can use 'any' in this question
-const wait2sec = async (p:Promise<any>, counter:number): Promise<any> => {
-  if (counter===3) throw Error
-  try {
-  return new Promise((resolve)=> {
-  setTimeout(async () => {
-  const x = await p
-  resolve(x)}
-  ,2000)
-    })
-  }
+
+async function wait2sec(y:(p:any)=>Promise<any>,p:any){
+  try{
+  const hello = await new Promise((resolve) => {
+      setTimeout(() => resolve(y(p)), 2000)
+  });
+  return hello
+  } 
   catch{
-     wait2sec(p,counter+1)
-  }
+  const world = await new Promise((resolve) => {
+      setTimeout(() => resolve(y(p)), 2000)
+  });
+  return world
 }
- 
-// const wait2Sec = async <T>(prom: Promise<T>):Promise<T> =>{
-//  return new Promise<T>((resolve, reject)=>{})
-//  );
-//  const val = async ()=>{try{return await prom}catch(err){return err}}
-//  return val(); 
-//  setTimeout(_=>,2000);
-//   try{
-//     return setTimeout( async ()=>{
-//       const retVal:T = await prom;
-//       return new Promise<T>(retVal);
-//   },2000);}
-//   catch(err){
-//     try{
-//         return setTimeout( async ()=>{
-//       const retVal:T = await prom;
-//       return new Promise<T>(retVal);
-//   },2000);}
-//   catch(err){
-//     return new Promise(err);
-//   }
-//  }
-// }
+}
 
-
- export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any)=> Promise<any>)[]]): Promise<any> {
+export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any)=> Promise<any>)[]]): Promise<any> {
      let d= undefined
      let x;
      for (let y of fns){
+       let P:Promise<any> = y(d) 
        try {
-      x = await y(d)
+      x = await P
       d=x
        }
        catch{
-        d= await wait2sec(y(d),1);
+        d = await wait2sec(y,d);
        }
      }
-
- }
+return d;
+    }
