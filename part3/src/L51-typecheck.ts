@@ -84,6 +84,9 @@ export const typeofPrim = (p: PrimOp): Result<TExp> =>
     (p.op === '<') ? numCompTExp :
     (p.op === '=') ? numCompTExp :
     // Important to use a different signature for each op with a TVar to avoid capture
+    (p.op === 'car')? parseTE('(cons -> T)') :
+    (p.op === 'cdr')? parseTE('(cons -> T)') :
+    (p.op === 'cons')? parseTE('(T1 * T2 -> cons)') :
     (p.op === 'number?') ? parseTE('(T -> boolean)') :
     (p.op === 'boolean?') ? parseTE('(T -> boolean)') :
     (p.op === 'string?') ? parseTE('(T -> boolean)') :
