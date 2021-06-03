@@ -8,7 +8,8 @@ import * as E from "../imp/TEnv";
 import * as T from "./TExp51";
 import { allT, first, rest, isEmpty } from "../shared/list";
 import { isNumber, isString } from '../shared/type-predicates';
-import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult } from "../shared/result";
+import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult, isOk,either, isFailure} from "../shared/result";
+import { makeProcTExp } from "./TExp51";
 
 // Purpose: Make type expressions equivalent by deriving a unifier
 // Return an error if the types are not unifiable.
@@ -216,6 +217,7 @@ export const typeofLet = (exp: A.LetExp, tenv: E.TEnv): Result<T.TExp> => {
 //      type<body>(tenv-body) = t
 // then type<(letrec((p1 (lambda (x11 ... x1n1) body1)) ...) body)>(tenv-body) = t
 export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => {
+
     const ps = R.map((b) => b.var.var, exp.bindings);
     const procs = R.map((b) => b.val, exp.bindings);
     if (! allT(A.isProcExp, procs)) {
@@ -234,15 +236,19 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
     return bind(constraints, _ => typeofExps(exp.body, tenvBody));
 };
 
-
 // Purpose: compute the type of a define
 // Typing rule:
 //   (define (var : texp) val)
+//   if Type<val>= Tval
+//   then Type<var>= Tal and exetend the env with Type<var>= Tal
 // TODO - write the typing rule for define-exp
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofDefine');
-};
+    const Etenv = E.makeExtendTEnv([exp.var.var],[exp.var.texp],tenv) // add varable to TEnv so in case of recursion, the type infference system will already familiar with the exsistance of the current defined varable while computing it's type
+    const ValTE =  typeofExp(exp.val,Etenv); // type computation
+    return bind(ValTE,(type)=> either(checkEqualType(type,exp.var.texp,exp),()=>  makeOk(T.makeVoidTExp()),(msg)=> makeFailure(msg)))
+}
 
+    
 // Purpose: compute the type of a program
 // Typing rule:
 //   (L5 <exp>+)
@@ -251,23 +257,36 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     isEmpty(exp.exps) ? makeFailure("Empty program") :
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
 
-const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => 
-    makeFailure('TODO typeofProgramExps');
-
+const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => { 
+    const currentType= typeofExp(exp,tenv); //get current expression type
+    if (exps.length==0) { // if theres no more nested expressions return current inffered type
+    return currentType;
+    } 
+    else // compute recursivey
+    return  (A.isCExp(exp)) ?  bind(currentType,()=>typeofProgramExps(first(exps),rest(exps),tenv)) : // if Cexp continue computing type
+    // if define compute new defined varable type and add to Tenv
+       (A.isDefineExp(exp)) ?  bind(currentType,()=>typeofProgramExps(first(exps),rest(exps),E.makeExtendTEnv([exp.var.var],[exp.var.texp],tenv))) :
+    exp
+}
 
 // Purpose: compute the type of a literal expression
 //      - Only need to cover the case of Symbol and Pair
 //      - for a symbol - record the value of the symbol in the SymbolTExp
 //        so that precise type checking can be made on ground symbol values.
 export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
-    makeFailure(`TODO typeofLit`);
-
+       V.isCompoundSExp(exp.val)? makeOk(T.makePairTExp()) : // Pair case
+       V.isSymbolSExp(exp.val)? makeOk(T.makeSymbolTExp(exp.val )) // Symbol case
+       :  makeOk(T.makeSymbolTExp());//TODO!!!! complete defualt result
+    
 // Purpose: compute the type of a set! expression
 // Typing rule:
 //   (set! var val)
 // TODO - write the typing rule for set-exp
 export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofSet');
+   const newType= typeofExp(exp.val,tenv); //get new value type
+   const currentType= E.applyTEnv(tenv,exp.var.var); //get currnet value type
+   // compare types and act acordingly
+  return either(safe2((type1:T.TExp,type2:T.TExp) => checkEqualType(type1,type2,exp)) (newType, currentType),()=> makeOk(T.makeVoidTExp()),(msg)=> makeFailure(msg));
 };
 
 // Purpose: compute the type of a class-exp(type fields methods)
