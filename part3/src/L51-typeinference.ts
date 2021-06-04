@@ -279,7 +279,7 @@ const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TE
 export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
        V.isCompoundSExp(exp.val)? makeOk(T.makePairTExp()) : // Pair case
        V.isSymbolSExp(exp.val)? makeOk(T.makeSymbolTExp(exp.val )) // Symbol case
-       :  makeOk(T.makeSymbolTExp());//TODO!!!! complete defualt result
+       :  makeOk(T.makeSymbolTExp());//practicaly never case
     
 // Purpose: compute the type of a set! expression
 // Typing rule:
@@ -289,7 +289,7 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
    const newType= typeofExp(exp.val,tenv); //get new value type
    const currentType= E.applyTEnv(tenv,exp.var.var); //get currnet value type
    // compare types and act acordingly
-  return either(safe2((type1:T.TExp,type2:T.TExp) => checkEqualType(type1,type2,exp)) (newType, currentType),()=> makeOk(T.makeVoidTExp()),(msg)=> makeFailure(msg));
+  return bind(safe2((type1:T.TExp,type2:T.TExp) => checkEqualType(type1,type2,exp)) (newType, currentType),()=> makeOk(T.makeVoidTExp()));
 };
 
 // Purpose: compute the type of a class-exp(type fields methods)
@@ -300,5 +300,19 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 //      type<method_k>(class-tenv) = mk
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
-    return makeFailure("TODO typeofClass");
-};
+    // Add class constractor params to Type Env so infering of method types could be compute (methods could use the fields)
+    const classtenv= E.makeExtendTEnv(R.map((varD)=> varD.var,exp.fields),R.map((varD)=> varD.texp,exp.fields),tenv)
+  //extracting data for typeinference
+    const vars = R.map((binding) => binding.var.var, exp.methods);
+    const vals = R.map((binding) => binding.val, exp.methods);
+    const varTEs = R.map((binding) => binding.var.texp, exp.methods);
+    const declaredFieldsTypes= R.map((vaRDecl)=> vaRDecl.texp,exp.fields)
+    const computedMethodsTypes = mapResult((val)=>typeofExp(val,classtenv),vals)
+// checking that inffered type of method is equal to declared one
+    const constrains= bind(computedMethodsTypes,(types)=>checkEqualTypes(varTEs,types,exp)) 
+    
+    const classType= T.makeClassTExp(exp.typeName.var, R.zipWith((a,b)=> [a,b],vars, varTEs))
+    
+    return bind(constrains, _ => makeOk((makeProcTExp(declaredFieldsTypes,classType))))
+
+}

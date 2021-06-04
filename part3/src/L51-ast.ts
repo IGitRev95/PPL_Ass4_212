@@ -461,10 +461,6 @@ const unparseClassExp = (ce: ClassExp, unparseWithTVars?: boolean): Result<strin
 // Collect class expressions in parsed AST so that they can be passed to the type inference module
 
 export const parsedToClassExps = (p: Parsed): ClassExp[] => 
-    // TODO parsedToClassExps (class..)
-    //  isExp(p) ? (isDefineExp(p) && isClassExp(p.val)) ? [p.val]  : [] :
-    //  reduce(concat,[],map((exp)=> parsedToClassExps(exp),p.exps)
-
     // Scans the AST for defined classes ( support class definition in explicit definition manner meaning: using the 'Define' keyword)
 isProgram(p)? map((defExp:DefineExp)=>defExp.val,p.exps.filter(isDefineExp)).filter(isClassExp) :
 (isDefineExp(p) && isClassExp(p.val))? [p.val] : []
