@@ -5,7 +5,7 @@
 // L51 extends L5 with:
 // typed class construct
 
-import { concat, chain, join, map, zipWith } from "ramda";
+import { concat, chain, join, map, zipWith,all,filter ,reduce} from "ramda";
 import { Sexp, Token } from 's-expression';
 import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from '../imp/L5-value';
 import { allT, first, rest, second, isEmpty } from '../shared/list';
@@ -335,8 +335,20 @@ const parseClassExp = (params: Sexp[]): Result<ClassExp> =>
     (params.length != 4) || (params[0] != ':') ? makeFailure(`class must have shape (class [: <type>]? <fields> <methods>) - got ${params.length} params instead`) :
     parseGoodClassExp(params[1], params[2], params[3]);
 
-const parseGoodClassExp = (typeName: Sexp, varDecls: Sexp, bindings: Sexp): Result<ClassExp> =>
-    makeFailure("TODO parseGoodClassExp");
+// const isGoodVardecls = (var_decls: Sexp): var_decls is Sexp[] =>
+// isArray(var_decls) &&
+
+
+const parseGoodClassExp = (typeName: Sexp, varDecls: Sexp, bindings: Sexp): Result<ClassExp> => 
+(!isGoodBindings(bindings)) ?  makeFailure('Malformed bindings in "class" expression') :
+(!isArray(varDecls))||(!(all(isConcreteVarDecl)(varDecls))) ? makeFailure('Malformed fields in "class" expression') :
+(isEmpty(varDecls)) ? makeFailure('"class" expression missing "fields" arguments') :
+(isEmpty(bindings)) ? makeFailure('"class" expression missing "methods" arguments'):
+(!isString(typeName)) ? makeFailure("some problem with the typename") :
+safe2((bdgs: Binding[], vdls: VarDecl[]) => makeOk(makeClassExp(makeTVar(typeName),vdls,bdgs)))
+        (parseBindings(bindings), mapResult(parseVarDecl, varDecls));
+
+
 
 // sexps has the shape (quote <sexp>)
 export const parseLitExp = (param: Sexp): Result<LitExp> =>
@@ -449,10 +461,16 @@ const unparseClassExp = (ce: ClassExp, unparseWithTVars?: boolean): Result<strin
 // Collect class expressions in parsed AST so that they can be passed to the type inference module
 
 export const parsedToClassExps = (p: Parsed): ClassExp[] => 
-    // TODO parsedToClassExps
-    [];
+    // TODO parsedToClassExps (class..)
+    //  isExp(p) ? (isDefineExp(p) && isClassExp(p.val)) ? [p.val]  : [] :
+    //  reduce(concat,[],map((exp)=> parsedToClassExps(exp),p.exps)
+
+    // Scans the AST for defined classes ( support class definition in explicit definition manner meaning: using the 'Define' keyword)
+isProgram(p)? map((defExp:DefineExp)=>defExp.val,p.exps.filter(isDefineExp)).filter(isClassExp) :
+(isDefineExp(p) && isClassExp(p.val))? [p.val] : []
 
 // L51 
 export const classExpToClassTExp = (ce: ClassExp): ClassTExp => 
-    makeClassTExp(ce.typeName.var, map((binding: Binding) => [binding.var.var, binding.var.texp], ce.methods));
+makeClassTExp(ce.typeName.var, map((binding: Binding) => [binding.var.var, binding.var.texp], ce.methods));
+
     

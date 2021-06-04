@@ -103,8 +103,11 @@ const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =
 // so that the user defined types are known to the type inference system.
 // For each class (class : typename ...) add a pair <class.typename classTExp> to TEnv
 export const makeTEnvFromClasses = (parsed: A.Parsed): E.TEnv => {
-    // TODO makeTEnvFromClasses
-    return E.makeEmptyTEnv();
+    const classexps:A.ClassExp[] = A.parsedToClassExps(parsed)
+    const newEnv= E.makeEmptyTEnv();
+    const tvars = R.map((cls)=> cls.typeName,classexps)
+    const vars = R.map((tvar)=> tvar.var,tvars)
+    return (isEmpty(classexps))? newEnv: E.makeExtendTEnv(vars,tvars,newEnv)
 }
 
 // Purpose: Compute the type of a concrete expression
@@ -245,7 +248,7 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
     const Etenv = E.makeExtendTEnv([exp.var.var],[exp.var.texp],tenv) // add varable to TEnv so in case of recursion, the type infference system will already familiar with the exsistance of the current defined varable while computing it's type
     const ValTE =  typeofExp(exp.val,Etenv); // type computation
-    return bind(ValTE,(type)=> either(checkEqualType(type,exp.var.texp,exp),()=>  makeOk(T.makeVoidTExp()),(msg)=> makeFailure(msg)))
+    return bind(ValTE,(type)=> bind (checkEqualType(type,exp.var.texp,exp),()=>  makeOk(T.makeVoidTExp())))
 }
 
     
