@@ -87,33 +87,29 @@ return ()=> MapGen(genFn,mapFn);
 /* 2.4 */
 // you can use 'any' in this question
 
-async function wait2sec(y:(p:any)=>Promise<any>,p:any){
-  try{
-  const hello = await new Promise((resolve) => {
-      setTimeout(() => resolve(y(p)), 2000)
-  });
-  return hello
-  } 
-  catch{
-  const world = await new Promise((resolve) => {
-      setTimeout(() => resolve(y(p)), 2000)
-  });
-  return world
-}
-}
+const wait2Sec = async (): Promise<void> =>
+  new Promise((res: VoidFunction) => setTimeout(res, 2000));
 
-export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any)=> Promise<any>)[]]): Promise<any> {
-     let d= undefined
-     let x;
-     for (let y of fns){
-       let P:Promise<any> = y(d) 
-       try {
-      x = await P
-      d=x
-       }
-       catch{
-        d = await wait2sec(y,d);
-       }
-     }
-return d;
+export async function asyncWaterfallWithRetry(
+  fns: [() => Promise<any>, ...((param: any) => Promise<any>)[]]
+): Promise<any> {
+  let returendVal = undefined;
+  for (let currAplliedFunc of fns) {
+    try {
+      returendVal = await currAplliedFunc(returendVal);
+    } catch {
+      await wait2Sec();
+      try {
+        returendVal = await currAplliedFunc(returendVal);
+      } catch {
+        await wait2Sec();
+        try {
+          returendVal = await currAplliedFunc(returendVal);
+        } catch (err) {
+          returendVal = err;
+        }
+      }
     }
+  }
+  return returendVal;
+}
